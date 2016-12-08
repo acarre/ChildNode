@@ -1,13 +1,10 @@
-//Program as ARduinoProMini 5V 16MHz.
-
-
 #include <SPI.h>
 #include <RF24.h>
 #include <SparkFunHTU21D.h>
 #include <Wire.h>
 #include <LowPower.h>
 
-#define nodeID 1 // this node
+#define nodeID 500 // this node
 
 typedef struct {
   	int SID;
@@ -29,7 +26,7 @@ int sleepDur = 0;  // sleep
 RF24 radio(8,7); //radio CE to pin 8, CSN to pin 7
  
 // WritePipe, ReadPipe
-const uint64_t pipes[2] = {0xF0F0F0F0D2LL, 0xF0F0F0F0E1LL};
+const uint64_t pipes[2] = {0xF0F0F0F0E2LL, 0xF0F0F0F0E1LL};
  
 ///////
  

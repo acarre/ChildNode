@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 //Program as ARduinoProMini 5V 16MHz.
+=======
+// Program as Arduino Pro mini 16MHz (5V)
+
+>>>>>>> origin/master
 
 
 #include <SPI.h>
@@ -6,6 +11,7 @@
 #include <SparkFunHTU21D.h>
 #include <Wire.h>
 #include <LowPower.h>
+#include <printf.h>
 
 #define nodeID 1 // this node
 
@@ -20,7 +26,7 @@ Message;
 #define LED 9 //led pin on devduino
 #define BUTTON 4 //button at side of devduino
 
-Message sensor;
+Message nodeData;
 Message command;
 
 int sleepDur = 0;  // sleep 
@@ -29,14 +35,20 @@ int sleepDur = 0;  // sleep
 RF24 radio(8,7); //radio CE to pin 8, CSN to pin 7
  
 // WritePipe, ReadPipe
+<<<<<<< HEAD
 const uint64_t pipes[2] = {0xF0F0F0F0D2LL, 0xF0F0F0F0E1LL};
+=======
+const uint64_t talking_pipe = 0xF0F0F0F0E1LL;
+const uint64_t listening_pipe = 0xF0F0F0F0E2LL;
+>>>>>>> origin/master
  
 ///////
  
 HTU21D myHumidity; //set name for onboard sensor
  
 void setup() {
-  	Serial.begin(115200);
+  	Serial.begin(9600);
+    printf_begin();
   	pinMode(LED, OUTPUT);
   	myHumidity.begin();
   	radio.begin();
@@ -44,9 +56,11 @@ void setup() {
   	//radio.setDataRate(RF24_250KBPS);  // set radio baud rate
   	radio.setRetries(15,15);
   	//radio.setChannel(100);  // radio channel
-  	radio.setPayloadSize(sizeof(sensor));
-  	radio.openWritingPipe(pipes[0]);
-  	radio.openReadingPipe(1,pipes[1]);
+  	radio.setPayloadSize(sizeof(nodeData));
+  	radio.openWritingPipe(talking_pipe);
+  	radio.openReadingPipe(1,listening_pipe);
+    radio.printDetails();
+
   	radio.stopListening();
 }
  
@@ -74,21 +88,21 @@ void loop() {
 // send data
 void sendSensorMessage(int dID, float V) {
 
-  	sensor.SID = nodeID;
-  	sensor.dataID = dID;
-  	sensor.value = V;
+  	nodeData.SID = nodeID;
+  	nodeData.dataID = dID;
+  	nodeData.value = V;
 
   	Serial.println("Sending...");
   	Serial.print("Sensor ID: ");
-  	Serial.println(sensor.SID); 
+  	Serial.println(nodeData.SID); 
   	Serial.print("Data ID: ");
-  	Serial.println(sensor.dataID);
+  	Serial.println(nodeData.dataID);
   	Serial.print("Value: ");
-  	Serial.println(sensor.value);
+  	Serial.println(nodeData.value);
   	Serial.print("Data Size: ");
-  	Serial.println(sizeof(sensor));
+  	Serial.println(sizeof(nodeData));
 
-  	bool ok = radio.write( &sensor, sizeof(sensor) ); 
+  	bool ok = radio.write( &nodeData, sizeof(nodeData) ); 
 
     if (ok) Serial.println("ok...");
     else Serial.println("failed.");
@@ -117,8 +131,13 @@ void sendSensorMessage(int dID, float V) {
   		Serial.print("Value: ");
   		Serial.println(command.value);
   		Serial.print("Data Size: ");
+<<<<<<< HEAD
   		Serial.println(sizeof(sensor));
   		if (command.SID == nodeID) {
+=======
+  		Serial.println(sizeof(nodeData));
+  		if (command.SID == masterID) {
+>>>>>>> origin/master
     		if (command.dataID == 0) Serial.print("They got it. Keep reporting.");
     		if (command.dataID == 1) { // ID =1 signals sleep command
     			Serial.print("They got it. Go to sleep and wake up in: ");
@@ -164,7 +183,7 @@ void goToSleep (int t) {
   	radio.powerDown();
   	int i  = 0;
   	while (i < t) {
-    	LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+    	LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF); // appears to run a little more slowly. 1800 cycles = 1870 seconds
     	i++;
   	}
   	radio.powerUp();

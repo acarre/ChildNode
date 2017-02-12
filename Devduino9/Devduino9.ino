@@ -18,7 +18,7 @@
 #include <LowPower.h>
 #include <APDS9930.h>
 
-#define nodeID 500 // this node
+#define nodeID 550 // this node
 
 typedef struct {
   	int SID;
@@ -80,7 +80,7 @@ void setup() {
 }
  
 void loop() {
-    goToSleep (10);
+    goToSleep (2);
 
     //send and receive sequence
 

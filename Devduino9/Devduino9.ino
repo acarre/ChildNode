@@ -18,7 +18,7 @@
 #include <LowPower.h>
 #include <APDS9930.h>
 
-#define nodeID 2 // this node
+#define nodeID 1 // this node
 
 typedef struct {
   	int SID;
@@ -35,6 +35,7 @@ Message sensor;
 Message command;
 
 int sleepDur = 0;  // sleep 
+bool startSleep = true; // starting state is deep sleep until button pressed
  
 //RF24 radio(CE,CSN);
 RF24 radio(8,7); //radio CE to pin 8, CSN to pin 7
@@ -51,6 +52,8 @@ uint16_t proximity_data = 0;
 void setup() {
   	Serial.begin(115200); // Serial needs to use 115200. Anything else results in radio failures.
   	pinMode(LED, OUTPUT); // Devduino led used to signal state.
+    pinMode(BUTTON, INPUT_PULLUP);
+
     digitalWrite(LED, HIGH); // LED on means high power mode
   	devTempHumSens.begin(); // Start devuino built in Temp and Humidity sensor
 
@@ -81,27 +84,31 @@ void setup() {
  
 void loop() {
     goToSleep (1);
-
-    //send and receive sequence
-    apds.readProximity(proximity_data);
-    radio.powerUp(); 
-    delay(20);
-    sendSensorMessage(1, devTempHumSens.readTemperature());
-    delay(20);
-    sendSensorMessage(2, devTempHumSens.readHumidity());
-    delay(20);
-    sendSensorMessage(3, float(proximity_data)); // proximity measure
-    delay(20);
-    sendSensorMessage(4, 222); // Unused
-    delay(20);
-    sendSensorMessage(5, 333); // unused
-    delay(20);
-    sendSensorMessage(6, sleepDur); // last sleep time
-    delay(20);
-    sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
-    delay(20);
-    radio.powerDown(); 
-    delay(20);
+    //check button
+    if (digitalRead(BUTTON) == LOW) startSleep = false;
+    if (startSleep == true) delay(2); //flick the led
+    else {
+      //send and receive sequence
+      apds.readProximity(proximity_data);
+      radio.powerUp(); 
+      delay(20);
+      sendSensorMessage(1, devTempHumSens.readTemperature());
+      delay(20);
+      sendSensorMessage(2, devTempHumSens.readHumidity());
+      delay(20);
+      sendSensorMessage(3, float(proximity_data)); // proximity measure
+      delay(20);
+      sendSensorMessage(4, 222); // Unused
+      delay(20);
+      sendSensorMessage(5, 333); // unused
+      delay(20);
+      sendSensorMessage(6, sleepDur); // last sleep time
+      delay(20);
+      sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
+      delay(20);
+      radio.powerDown(); 
+      delay(20);
+    }
 }
  
 // send data

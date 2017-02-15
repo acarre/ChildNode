@@ -18,7 +18,7 @@
 #include <LowPower.h>
 #include <APDS9930.h>
 
-#define nodeID 550 // this node
+#define nodeID 2 // this node
 
 typedef struct {
   	int SID;
@@ -80,20 +80,26 @@ void setup() {
 }
  
 void loop() {
-    goToSleep (2);
+    goToSleep (1);
 
     //send and receive sequence
-
+    apds.readProximity(proximity_data);
     radio.powerUp(); 
     delay(20);
     sendSensorMessage(1, devTempHumSens.readTemperature());
+    delay(20);
     sendSensorMessage(2, devTempHumSens.readHumidity());
-    apds.readProximity(proximity_data);
+    delay(20);
     sendSensorMessage(3, float(proximity_data)); // proximity measure
+    delay(20);
     sendSensorMessage(4, 222); // Unused
+    delay(20);
     sendSensorMessage(5, 333); // unused
+    delay(20);
     sendSensorMessage(6, sleepDur); // last sleep time
+    delay(20);
     sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
+    delay(20);
     radio.powerDown(); 
     delay(20);
 }
@@ -127,7 +133,7 @@ void sendSensorMessage(int dID, float V) {
     unsigned long started_waiting_at = millis();
     bool timeout = false;
     while ( ! radio.available() && ! timeout ) {
-    	if (millis() - started_waiting_at > 200 ) timeout = true;
+    	if (millis() - started_waiting_at > 1000 ) timeout = true;
     }
 
     // Describe the results

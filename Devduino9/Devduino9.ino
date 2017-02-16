@@ -48,6 +48,7 @@ const uint64_t pipes[2] = {0xF0F0F0F0E2LL, 0xF0F0F0F0E1LL};
 HTU21D devTempHumSens; //set name for onboard sensor
 APDS9930 apds = APDS9930(); //set name for APDS9930 sensor on I2C bus
 uint16_t proximity_data = 0;
+float ambient_light = 0;
  
 void setup() {
   	Serial.begin(115200); // Serial needs to use 115200. Anything else results in radio failures.
@@ -66,7 +67,8 @@ void setup() {
     apds.setProximityGain(PGAIN_2X); //set proximity sensor sensitivity
     //apds.setProximityIntLowThreshold(0); //set low threshold (far)
     //apds.setProximityIntHighThreshold(600); //set high threshold (near)
-    apds.enableProximitySensor(false); //activate proximity sensing interupt
+    //apds.enableProximitySensor(false); //activate proximity sensing interupt
+    //apds.enableProximitySensor(false);
     dumpAPDS(); //print out APDS registers
 
   	radio.begin();
@@ -89,7 +91,11 @@ void loop() {
     if (startSleep == true) delay(2); //flick the led
     else {
       //send and receive sequence
+      apds.enableProximitySensor(false);
       apds.readProximity(proximity_data);
+      apds.enableLightSensor(false);
+      apds.readAmbientLightLux(ambient_light);
+
       radio.powerUp(); 
       delay(20);
       sendSensorMessage(1, devTempHumSens.readTemperature());
@@ -98,7 +104,7 @@ void loop() {
       delay(20);
       sendSensorMessage(3, float(proximity_data)); // proximity measure
       delay(20);
-      sendSensorMessage(4, 222); // Unused
+      sendSensorMessage(4, ambient_light); // Unused
       delay(20);
       sendSensorMessage(5, 333); // unused
       delay(20);

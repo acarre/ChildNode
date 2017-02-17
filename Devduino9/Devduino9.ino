@@ -253,6 +253,8 @@ int proxIntStatus() {
 
 void flashNodeId() {
   digitalWrite(LED, LOW);
+  radio.powerDown();
+  apds.disablePower();
   for (int i=0;i<nodeID;i++) {
     digitalWrite(LED, HIGH);
     delay(10);

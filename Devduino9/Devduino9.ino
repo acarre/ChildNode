@@ -29,7 +29,7 @@ Message;
  
 #define LED 9 //led pin on devduino
 #define BUTTON 4 //button at side of devduino
-#define nodeID 2 //node ID 
+#define nodeID 1 //node ID 
 
 Message sensor;
 Message command;
@@ -48,7 +48,8 @@ const uint64_t pipes[2] = {0xF0F0F0F0E2LL, 0xF0F0F0F0E1LL};
 HTU21D devTempHumSens; //set name for onboard sensor
 APDS9930 apds = APDS9930(); //set name for APDS9930 sensor on I2C bus
 uint16_t proximity_data = 0;
-float ambient_light = 0;
+uint16_t ch0Light = 0;
+uint16_t ch1Light = 0;
  
 void setup() {
   	Serial.begin(115200); // Serial needs to use 115200. Anything else results in radio failures.
@@ -91,8 +92,10 @@ void loop() {
       //send and receive sequence
       apds.enableProximitySensor(false);
       apds.readProximity(proximity_data);
+      delay(10);
       apds.enableLightSensor(false);
-      apds.readAmbientLightLux(ambient_light);
+      apds.readCh0Light(ch0Light);
+      apds.readCh1Light(ch1Light);
 
       radio.powerUp(); 
       delay(20);
@@ -100,11 +103,11 @@ void loop() {
       delay(20);
       sendSensorMessage(2, devTempHumSens.readHumidity());
       delay(20);
-      sendSensorMessage(3, float(proximity_data)); // proximity measure
+      sendSensorMessage(3, int(proximity_data)); // proximity measure
       delay(20);
-      sendSensorMessage(4, ambient_light); // Unused
+      sendSensorMessage(4, int(ch0Light)); 
       delay(20);
-      sendSensorMessage(5, 333); // unused
+      sendSensorMessage(5, int(ch1Light)); 
       delay(20);
       sendSensorMessage(6, sleepDur); // last sleep time
       delay(20);

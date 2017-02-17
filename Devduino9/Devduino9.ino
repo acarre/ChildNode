@@ -17,8 +17,7 @@
 #include <Wire.h>
 #include <LowPower.h>
 #include <APDS9930.h>
-
-#define nodeID 1 // this node
+#include <EEPROM.h> // EEPROM read/write libary. Simplifies variable types.
 
 typedef struct {
   	int SID;
@@ -30,6 +29,7 @@ Message;
  
 #define LED 9 //led pin on devduino
 #define BUTTON 4 //button at side of devduino
+#define nodeID 2 //node ID 
 
 Message sensor;
 Message command;
@@ -80,15 +80,13 @@ void setup() {
   	radio.openWritingPipe(pipes[0]);
   	radio.openReadingPipe(1,pipes[1]);
   	radio.stopListening();
-
-
 }
  
 void loop() {
     goToSleep (1);
     //check button
     if (digitalRead(BUTTON) == LOW) startSleep = false;
-    if (startSleep == true) delay(2); //flick the led
+    if (startSleep == true) flashNodeId(); // flick the node ID pattern
     else {
       //send and receive sequence
       apds.enableProximitySensor(false);
@@ -248,4 +246,15 @@ int proxIntStatus() {
   apds.wireReadDataByte(APDS9930_STATUS, val);
   status = bitRead(val, 5);
   return status;
+}
+
+void flashNodeId() {
+  digitalWrite(LED, LOW);
+  for (int i=0;i<nodeID;i++) {
+    digitalWrite(LED, HIGH);
+    delay(10);
+    digitalWrite(LED, LOW);
+    LowPower.powerDown(SLEEP_500MS, ADC_OFF, BOD_OFF);
+    if (digitalRead(BUTTON) == LOW) startSleep = false;
+  }
 }

@@ -29,7 +29,7 @@ Message;
  
 #define LED 9 //led pin on devduino
 #define BUTTON 4 //button at side of devduino
-#define nodeID 1 //node ID 
+#define nodeID 2 //node ID 
 
 Message sensor;
 Message command;

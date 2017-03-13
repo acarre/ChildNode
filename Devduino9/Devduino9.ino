@@ -147,7 +147,7 @@ void sendSensorMessage(int dID, float V) {
     unsigned long started_waiting_at = millis();
     bool timeout = false;
     while ( ! radio.available() && ! timeout ) {
-    	if (millis() - started_waiting_at > 1000 ) timeout = true;
+    	if (millis() - started_waiting_at > 100 ) timeout = true;
     }
 
     // Describe the results

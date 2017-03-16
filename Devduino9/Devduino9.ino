@@ -98,21 +98,13 @@ void loop() {
       apds.readCh1Light(ch1Light);
 
       radio.powerUp(); 
-      delay(20);
       sendSensorMessage(1, devTempHumSens.readTemperature());
-      delay(20);
       sendSensorMessage(2, devTempHumSens.readHumidity());
-      delay(20);
       sendSensorMessage(3, int(proximity_data)); // proximity measure
-      delay(20);
       sendSensorMessage(4, int(ch0Light)); 
-      delay(20);
       sendSensorMessage(5, int(ch1Light)); 
-      delay(20);
       sendSensorMessage(6, sleepDur); // last sleep time
-      delay(20);
       sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
-      delay(20);
       radio.powerDown(); 
       delay(20);
     }
@@ -125,15 +117,15 @@ void sendSensorMessage(int dID, float V) {
   	sensor.dataID = dID;
   	sensor.value = V;
 
-  	Serial.println("Sending...");
-  	Serial.print("Sensor ID: ");
-  	Serial.println(sensor.SID); 
-  	Serial.print("Data ID: ");
-  	Serial.println(sensor.dataID);
-  	Serial.print("Value: ");
-  	Serial.println(sensor.value);
-  	Serial.print("Data Size: ");
-  	Serial.println(sizeof(sensor));
+  	//Serial.println("Sending...");
+  	//Serial.print("Sensor ID: ");
+  	//Serial.println(sensor.SID); 
+  	//Serial.print("Data ID: ");
+  	//Serial.println(sensor.dataID);
+  	//Serial.print("Value: ");
+  	//Serial.println(sensor.value);
+  	//Serial.print("Data Size: ");
+  	//Serial.println(sizeof(sensor));
 
   	bool ok = radio.write( &sensor, sizeof(sensor) ); 
 
@@ -147,7 +139,7 @@ void sendSensorMessage(int dID, float V) {
     unsigned long started_waiting_at = millis();
     bool timeout = false;
     while ( ! radio.available() && ! timeout ) {
-    	if (millis() - started_waiting_at > 100 ) timeout = true;
+    	if (millis() - started_waiting_at > 50 ) timeout = true;
     }
 
     // Describe the results
@@ -156,20 +148,20 @@ void sendSensorMessage(int dID, float V) {
     	// Grab the response, compare, and send to debugging spew
       	radio.read( &command, sizeof(command) );
       	// Spew it
-        Serial.println("Receiving...");
-        Serial.print("Sensor ID: ");
-        Serial.println(command.SID); 
-        Serial.print("Data ID: ");
-  		Serial.println(command.dataID);
-  		Serial.print("Value: ");
-  		Serial.println(command.value);
-  		Serial.print("Data Size: ");
-  		Serial.println(sizeof(sensor));
+        //Serial.println("Receiving...");
+        //Serial.print("Sensor ID: ");
+        //Serial.println(command.SID); 
+        //Serial.print("Data ID: ");
+  		//Serial.println(command.dataID);
+  		//Serial.print("Value: ");
+  		//Serial.println(command.value);
+  		//Serial.print("Data Size: ");
+  		//Serial.println(sizeof(sensor));
   		if (command.SID == nodeID) {
     		if (command.dataID == 0) Serial.print("They got it. Keep reporting.");
     		if (command.dataID == 1) { // ID =1 signals sleep command
-    			Serial.print("They got it. Go to sleep and wake up in: ");
-    			Serial.println(command.value);
+    			//Serial.print("They got it. Go to sleep and wake up in: ");
+    			//Serial.println(command.value);
     			sleepDur = command.value; // seconds to sleep.
           apds.clearProximityInt(); //reset proximity interrupts because data has been received
     			goToSleep (sleepDur);
@@ -232,15 +224,15 @@ void dumpAPDS () {
         (reg != 0x11) )
     {
       apds.wireReadDataByte(reg, val);
-      Serial.print(reg, HEX);
-      Serial.print(": 0x");
-      Serial.println(val, HEX);
+      //Serial.print(reg, HEX);
+      //Serial.print(": 0x");
+      //Serial.println(val, HEX);
     }
   }
   apds.wireReadDataByte(0x1E, val);
-  Serial.print(0x1E, HEX);
-  Serial.print(": 0x");
-  Serial.println(val, HEX);
+  //Serial.print(0x1E, HEX);
+  //Serial.print(": 0x");
+  //Serial.println(val, HEX);
 }
 
 int proxIntStatus() {

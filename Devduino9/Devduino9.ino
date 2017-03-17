@@ -36,6 +36,7 @@ Message command;
 
 int sleepDur = 0;  // sleep 
 bool startSleep = true; // starting state is deep sleep until button pressed
+unsigned long burst = 0; //send data at maxium rate
  
 //RF24 radio(CE,CSN);
 RF24 radio(8,7); //radio CE to pin 8, CSN to pin 7
@@ -62,29 +63,23 @@ void setup() {
     apds.init();
     //apds.clearProximityInt();
     apds.setMode(WAIT,1); //enable wait state between sensing cycles. Default is no wait.
-    //apds.setMode(SLEEP_AFTER_INT,1); //enable sleep after interupt.
-    //apds.wireWriteDataByte(APDS9930_WTIME, 0xFF); //set wait time to 2.73ms. Default 0xFF.
-    //apds.wireWriteDataByte(APDS9930_CONFIG, 0); //set long wait to off. 2= Multiplies wait time by 12x. Default 0 no multiply.
     apds.setProximityGain(PGAIN_2X); //set proximity sensor sensitivity
-    //apds.setProximityIntLowThreshold(0); //set low threshold (far)
-    //apds.setProximityIntHighThreshold(600); //set high threshold (near)
-    //apds.enableProximitySensor(false); //activate proximity sensing interupt
-    //apds.enableProximitySensor(false);
     dumpAPDS(); //print out APDS registers
 
   	radio.begin();
-  	//radio.setPALevel(RF24_PA_HIGH);   // set radio power
-  	//radio.setDataRate(RF24_250KBPS);  // set radio baud rate
-  	radio.setRetries(15,15);
-  	//radio.setChannel(100);  // radio channel
+  	radio.setPALevel(RF24_PA_HIGH);   // set radio power
+  	radio.setDataRate(RF24_250KBPS);  // set radio baud rate
+    radio.setChannel(100);  // radio channel
+    radio.setRetries(15,15);
   	radio.setPayloadSize(sizeof(sensor));
+
   	radio.openWritingPipe(pipes[0]);
   	radio.openReadingPipe(1,pipes[1]);
   	radio.stopListening();
 }
  
 void loop() {
-    goToSleep (1);
+    if (burst < millis()) goToSleep (5); // sleep for 5 seconds if no command received. Master must still be asleep.
     //check button
     if (digitalRead(BUTTON) == LOW) startSleep = false;
     if (startSleep == true) flashNodeId(); // flick the node ID pattern
@@ -97,25 +92,26 @@ void loop() {
       apds.readCh0Light(ch0Light);
       apds.readCh1Light(ch1Light);
 
-      radio.powerUp(); 
-      sendSensorMessage(1, devTempHumSens.readTemperature());
-      sendSensorMessage(2, devTempHumSens.readHumidity());
-      sendSensorMessage(3, int(proximity_data)); // proximity measure
-      sendSensorMessage(4, int(ch0Light)); 
-      sendSensorMessage(5, int(ch1Light)); 
-      sendSensorMessage(6, sleepDur); // last sleep time
-      sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
-      radio.powerDown(); 
-      delay(20);
+      if (sendSensorMessage(1, devTempHumSens.readTemperature())) burst = millis()+10000; // transmit data for 10 seconds
+      if (burst>millis()) {
+        sendSensorMessage(2, devTempHumSens.readHumidity());
+        sendSensorMessage(3, int(proximity_data)); // proximity measure
+        sendSensorMessage(4, int(ch0Light)); 
+        sendSensorMessage(5, int(ch1Light)); 
+        sendSensorMessage(6, sleepDur); // last sleep time
+        sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
+      }
+
     }
 }
  
 // send data
-void sendSensorMessage(int dID, float V) {
+bool sendSensorMessage(int dID, float V) {
 
   	sensor.SID = nodeID;
   	sensor.dataID = dID;
   	sensor.value = V;
+    bool commandRec = false;
 
   	//Serial.println("Sending...");
   	//Serial.print("Sensor ID: ");
@@ -158,7 +154,10 @@ void sendSensorMessage(int dID, float V) {
   		//Serial.print("Data Size: ");
   		//Serial.println(sizeof(sensor));
   		if (command.SID == nodeID) {
-    		if (command.dataID == 0) Serial.print("They got it. Keep reporting.");
+    		if (command.dataID == 0) {
+          Serial.print("They got it. Keep reporting.");
+          commandRec = true;
+        }
     		if (command.dataID == 1) { // ID =1 signals sleep command
     			//Serial.print("They got it. Go to sleep and wake up in: ");
     			//Serial.println(command.value);
@@ -170,7 +169,7 @@ void sendSensorMessage(int dID, float V) {
     }
   	// needs a retry in here...
   	radio.stopListening();
-  	return;
+  	return commandRec;
 }
  
 long readVcc() {

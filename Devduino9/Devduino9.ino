@@ -29,7 +29,7 @@ Message;
  
 #define LED 9 //led pin on devduino
 #define BUTTON 4 //button at side of devduino
-#define nodeID 2 //node ID 
+#define nodeID 1 //node ID 
 
 Message sensor;
 Message command;
@@ -41,8 +41,10 @@ unsigned long burst = 0; //send data at maxium rate
 //RF24 radio(CE,CSN);
 RF24 radio(8,7); //radio CE to pin 8, CSN to pin 7
  
-// WritePipe, ReadPipe
-const uint64_t pipes[2] = {0xF0F0F0F0E2LL, 0xF0F0F0F0E1LL};
+// Radio pipes
+const uint64_t writingPipe[5] = { 0xF0F0F0F0D2LL, 0xF0F0F0F0C3LL, 0xF0F0F0F0B4LL, 0xF0F0F0F0A5LL, 0xF0F0F0F096LL };
+const uint64_t readingPipe[5] = { 0x3A3A3A3AD2LL, 0x3A3A3A3AC3LL, 0x3A3A3A3AB4LL, 0x3A3A3A3AA5LL, 0x3A3A3A3A96LL };
+
  
 ///////
  
@@ -73,8 +75,8 @@ void setup() {
     radio.setRetries(15,15);
   	radio.setPayloadSize(sizeof(sensor));
 
-  	radio.openWritingPipe(pipes[0]);
-  	radio.openReadingPipe(1,pipes[1]);
+  	radio.openWritingPipe(writingPipe[nodeID-1]);
+  	radio.openReadingPipe(1,readingPipe[nodeID-1]);
   	radio.stopListening();
 }
  

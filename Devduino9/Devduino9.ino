@@ -17,7 +17,7 @@
 #include <Wire.h>
 #include <LowPower.h>
 #include <APDS9930.h>
-#include <EEPROM.h> // EEPROM read/write libary. Simplifies variable types.
+//#include <EEPROM.h> // EEPROM read/write libary. Simplifies variable types.
 
 typedef struct {
   	int SID;
@@ -26,10 +26,14 @@ typedef struct {
 }
 
 Message;
- 
+
+// ********** MUST SET! ***********
+#define nodeID 1 //node ID 
+// ********************************
+
 #define LED 9 //led pin on devduino
 #define BUTTON 4 //button at side of devduino
-#define nodeID 1 //node ID 
+
 
 Message sensor;
 Message command;
@@ -53,6 +57,7 @@ APDS9930 apds = APDS9930(); //set name for APDS9930 sensor on I2C bus
 uint16_t proximity_data = 0;
 uint16_t ch0Light = 0;
 uint16_t ch1Light = 0;
+float luxLight = 0;
  
 void setup() {
   	Serial.begin(115200); // Serial needs to use 115200. Anything else results in radio failures.
@@ -64,12 +69,12 @@ void setup() {
 
     apds.init();
     //apds.clearProximityInt();
-    apds.setMode(WAIT,1); //enable wait state between sensing cycles. Default is no wait.
-    apds.setProximityGain(PGAIN_2X); //set proximity sensor sensitivity
-    dumpAPDS(); //print out APDS registers
+    //apds.setMode(WAIT,1); //enable wait state between sensing cycles. Default is no wait.
+    //apds.setProximityGain(PGAIN_2X); //set proximity sensor sensitivity
+    //dumpAPDS(); //print out APDS registers
 
   	radio.begin();
-  	radio.setPALevel(RF24_PA_HIGH);   // set radio power
+  	//radio.setPALevel(RF24_PA_HIGH);   // set radio power
   	radio.setDataRate(RF24_250KBPS);  // set radio baud rate
     radio.setChannel(100);  // radio channel
     radio.setRetries(15,15);
@@ -81,7 +86,9 @@ void setup() {
 }
  
 void loop() {
-    if (burst < millis()) goToSleep (5); // sleep for 5 seconds if no command received. Master must still be asleep.
+
+    
+    if (burst < millis()) goToSleep (1); // sleep for 5 seconds if no command received. Master must still be asleep.
     //check button
     if (digitalRead(BUTTON) == LOW) startSleep = false;
     if (startSleep == true) flashNodeId(); // flick the node ID pattern
@@ -93,6 +100,7 @@ void loop() {
       apds.enableLightSensor(false);
       apds.readCh0Light(ch0Light);
       apds.readCh1Light(ch1Light);
+      apds.readAmbientLightLux(luxLight);
 
       if (sendSensorMessage(1, devTempHumSens.readTemperature())) burst = millis()+10000; // transmit data for 10 seconds
       if (burst>millis()) {
@@ -100,7 +108,7 @@ void loop() {
         sendSensorMessage(3, int(proximity_data)); // proximity measure
         sendSensorMessage(4, int(ch0Light)); 
         sendSensorMessage(5, int(ch1Light)); 
-        sendSensorMessage(6, sleepDur); // last sleep time
+        sendSensorMessage(6, luxLight);
         sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
       }
 

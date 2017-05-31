@@ -29,19 +29,22 @@ Message;
  
 #define LED 9 //led pin on devduino
 #define BUTTON 4 //button at side of devduino
-#define nodeID 2 //node ID 
+#define nodeID 1 //node ID 
 
 Message sensor;
 Message command;
 
 int sleepDur = 0;  // sleep 
 bool startSleep = true; // starting state is deep sleep until button pressed
+unsigned long burst = 0; //send data at maxium rate
  
 //RF24 radio(CE,CSN);
 RF24 radio(8,7); //radio CE to pin 8, CSN to pin 7
  
-// WritePipe, ReadPipe
-const uint64_t pipes[2] = {0xF0F0F0F0E2LL, 0xF0F0F0F0E1LL};
+// Radio pipes
+const uint64_t writingPipe[5] = { 0xF0F0F0F0D2LL, 0xF0F0F0F0C3LL, 0xF0F0F0F0B4LL, 0xF0F0F0F0A5LL, 0xF0F0F0F096LL };
+const uint64_t readingPipe[5] = { 0x3A3A3A3AD2LL, 0x3A3A3A3AC3LL, 0x3A3A3A3AB4LL, 0x3A3A3A3AA5LL, 0x3A3A3A3A96LL };
+
  
 ///////
  
@@ -62,29 +65,23 @@ void setup() {
     apds.init();
     //apds.clearProximityInt();
     apds.setMode(WAIT,1); //enable wait state between sensing cycles. Default is no wait.
-    //apds.setMode(SLEEP_AFTER_INT,1); //enable sleep after interupt.
-    //apds.wireWriteDataByte(APDS9930_WTIME, 0xFF); //set wait time to 2.73ms. Default 0xFF.
-    //apds.wireWriteDataByte(APDS9930_CONFIG, 0); //set long wait to off. 2= Multiplies wait time by 12x. Default 0 no multiply.
     apds.setProximityGain(PGAIN_2X); //set proximity sensor sensitivity
-    //apds.setProximityIntLowThreshold(0); //set low threshold (far)
-    //apds.setProximityIntHighThreshold(600); //set high threshold (near)
-    //apds.enableProximitySensor(false); //activate proximity sensing interupt
-    //apds.enableProximitySensor(false);
     dumpAPDS(); //print out APDS registers
 
   	radio.begin();
-  	//radio.setPALevel(RF24_PA_HIGH);   // set radio power
-  	//radio.setDataRate(RF24_250KBPS);  // set radio baud rate
-  	radio.setRetries(15,15);
-  	//radio.setChannel(100);  // radio channel
+  	radio.setPALevel(RF24_PA_HIGH);   // set radio power
+  	radio.setDataRate(RF24_250KBPS);  // set radio baud rate
+    radio.setChannel(100);  // radio channel
+    radio.setRetries(15,15);
   	radio.setPayloadSize(sizeof(sensor));
-  	radio.openWritingPipe(pipes[0]);
-  	radio.openReadingPipe(1,pipes[1]);
+
+  	radio.openWritingPipe(writingPipe[nodeID-1]);
+  	radio.openReadingPipe(1,readingPipe[nodeID-1]);
   	radio.stopListening();
 }
  
 void loop() {
-    goToSleep (1);
+    if (burst < millis()) goToSleep (5); // sleep for 5 seconds if no command received. Master must still be asleep.
     //check button
     if (digitalRead(BUTTON) == LOW) startSleep = false;
     if (startSleep == true) flashNodeId(); // flick the node ID pattern
@@ -97,43 +94,36 @@ void loop() {
       apds.readCh0Light(ch0Light);
       apds.readCh1Light(ch1Light);
 
-      radio.powerUp(); 
-      delay(20);
-      sendSensorMessage(1, devTempHumSens.readTemperature());
-      delay(20);
-      sendSensorMessage(2, devTempHumSens.readHumidity());
-      delay(20);
-      sendSensorMessage(3, int(proximity_data)); // proximity measure
-      delay(20);
-      sendSensorMessage(4, int(ch0Light)); 
-      delay(20);
-      sendSensorMessage(5, int(ch1Light)); 
-      delay(20);
-      sendSensorMessage(6, sleepDur); // last sleep time
-      delay(20);
-      sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
-      delay(20);
-      radio.powerDown(); 
-      delay(20);
+      if (sendSensorMessage(1, devTempHumSens.readTemperature())) burst = millis()+10000; // transmit data for 10 seconds
+      if (burst>millis()) {
+        sendSensorMessage(2, devTempHumSens.readHumidity());
+        sendSensorMessage(3, int(proximity_data)); // proximity measure
+        sendSensorMessage(4, int(ch0Light)); 
+        sendSensorMessage(5, int(ch1Light)); 
+        sendSensorMessage(6, sleepDur); // last sleep time
+        sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
+      }
+
     }
 }
  
 // send data
-void sendSensorMessage(int dID, float V) {
+bool sendSensorMessage(int dID, float V) {
 
   	sensor.SID = nodeID;
   	sensor.dataID = dID;
   	sensor.value = V;
+    bool commandRec = false;
 
-  	Serial.println("Sending...");
-  	Serial.print("Sensor ID: ");
-  	Serial.println(sensor.SID); 
-  	Serial.print("Data ID: ");
-  	Serial.println(sensor.dataID);
-  	Serial.print("Value: ");
-  	Serial.println(sensor.value);
-  	Serial.print("Data Size: ");
-  	Serial.println(sizeof(sensor));
+  	//Serial.println("Sending...");
+  	//Serial.print("Sensor ID: ");
+  	//Serial.println(sensor.SID); 
+  	//Serial.print("Data ID: ");
+  	//Serial.println(sensor.dataID);
+  	//Serial.print("Value: ");
+  	//Serial.println(sensor.value);
+  	//Serial.print("Data Size: ");
+  	//Serial.println(sizeof(sensor));
 
   	bool ok = radio.write( &sensor, sizeof(sensor) ); 
 
@@ -147,7 +137,7 @@ void sendSensorMessage(int dID, float V) {
     unsigned long started_waiting_at = millis();
     bool timeout = false;
     while ( ! radio.available() && ! timeout ) {
-    	if (millis() - started_waiting_at > 1000 ) timeout = true;
+    	if (millis() - started_waiting_at > 50 ) timeout = true;
     }
 
     // Describe the results
@@ -156,20 +146,23 @@ void sendSensorMessage(int dID, float V) {
     	// Grab the response, compare, and send to debugging spew
       	radio.read( &command, sizeof(command) );
       	// Spew it
-        Serial.println("Receiving...");
-        Serial.print("Sensor ID: ");
-        Serial.println(command.SID); 
-        Serial.print("Data ID: ");
-  		Serial.println(command.dataID);
-  		Serial.print("Value: ");
-  		Serial.println(command.value);
-  		Serial.print("Data Size: ");
-  		Serial.println(sizeof(sensor));
+        //Serial.println("Receiving...");
+        //Serial.print("Sensor ID: ");
+        //Serial.println(command.SID); 
+        //Serial.print("Data ID: ");
+  		//Serial.println(command.dataID);
+  		//Serial.print("Value: ");
+  		//Serial.println(command.value);
+  		//Serial.print("Data Size: ");
+  		//Serial.println(sizeof(sensor));
   		if (command.SID == nodeID) {
-    		if (command.dataID == 0) Serial.print("They got it. Keep reporting.");
+    		if (command.dataID == 0) {
+          Serial.print("They got it. Keep reporting.");
+          commandRec = true;
+        }
     		if (command.dataID == 1) { // ID =1 signals sleep command
-    			Serial.print("They got it. Go to sleep and wake up in: ");
-    			Serial.println(command.value);
+    			//Serial.print("They got it. Go to sleep and wake up in: ");
+    			//Serial.println(command.value);
     			sleepDur = command.value; // seconds to sleep.
           apds.clearProximityInt(); //reset proximity interrupts because data has been received
     			goToSleep (sleepDur);
@@ -178,7 +171,7 @@ void sendSensorMessage(int dID, float V) {
     }
   	// needs a retry in here...
   	radio.stopListening();
-  	return;
+  	return commandRec;
 }
  
 long readVcc() {
@@ -232,15 +225,15 @@ void dumpAPDS () {
         (reg != 0x11) )
     {
       apds.wireReadDataByte(reg, val);
-      Serial.print(reg, HEX);
-      Serial.print(": 0x");
-      Serial.println(val, HEX);
+      //Serial.print(reg, HEX);
+      //Serial.print(": 0x");
+      //Serial.println(val, HEX);
     }
   }
   apds.wireReadDataByte(0x1E, val);
-  Serial.print(0x1E, HEX);
-  Serial.print(": 0x");
-  Serial.println(val, HEX);
+  //Serial.print(0x1E, HEX);
+  //Serial.print(": 0x");
+  //Serial.println(val, HEX);
 }
 
 int proxIntStatus() {

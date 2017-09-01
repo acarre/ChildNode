@@ -75,6 +75,7 @@ void setup() {
 
   	radio.begin();
   	//radio.setPALevel(RF24_PA_HIGH);   // set radio power
+    radio.setPALevel(RF24_PA_MAX);   // set radio power
   	radio.setDataRate(RF24_250KBPS);  // set radio baud rate
     radio.setChannel(100);  // radio channel
     radio.setRetries(15,15);
@@ -95,6 +96,8 @@ void loop() {
     else {
       //send and receive sequence
       apds.enableProximitySensor(false);
+      apds.setProximityGain(0); //set gain to 1x
+      apds.setProximityDiode(1); //set diode to 25mA
       apds.readProximity(proximity_data);
       delay(10);
       apds.enableLightSensor(false);
@@ -213,6 +216,7 @@ void goToSleep (int t) {
   	radio.powerDown();
     apds.disablePower(); //APDS will only check proximity when awake.
   	int i  = 0;
+    if (t>3600) t=0; //sleep cannot be larger than 1 hour.
   	while (i < t) {
     	LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
     	i++;

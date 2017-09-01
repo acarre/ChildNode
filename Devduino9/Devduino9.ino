@@ -20,8 +20,8 @@
 //#include <EEPROM.h> // EEPROM read/write libary. Simplifies variable types.
 
 typedef struct {
-  	int SID;
-  	int dataID;
+  	byte SID;
+  	byte dataID;
   	float value;
 }
 
@@ -79,7 +79,8 @@ void setup() {
   	radio.setDataRate(RF24_250KBPS);  // set radio baud rate
     radio.setChannel(100);  // radio channel
     radio.setRetries(15,15);
-  	radio.setPayloadSize(sizeof(sensor));
+  	//radio.setPayloadSize(sizeof(sensor));
+    radio.setPayloadSize(8);//TEST
 
   	radio.openWritingPipe(writingPipe[nodeID-1]);
   	radio.openReadingPipe(1,readingPipe[nodeID-1]);
@@ -119,7 +120,7 @@ void loop() {
 }
  
 // send data
-bool sendSensorMessage(int dID, float V) {
+bool sendSensorMessage(byte dID, float V) {
 
   	sensor.SID = nodeID;
   	sensor.dataID = dID;
@@ -174,7 +175,7 @@ bool sendSensorMessage(int dID, float V) {
     		if (command.dataID == 1) { // ID =1 signals sleep command
     			//Serial.print("They got it. Go to sleep and wake up in: ");
     			//Serial.println(command.value);
-    			sleepDur = command.value; // seconds to sleep.
+    			sleepDur = (int)command.value; // seconds to sleep.
           apds.clearProximityInt(); //reset proximity interrupts because data has been received
     			goToSleep (sleepDur);
     		}

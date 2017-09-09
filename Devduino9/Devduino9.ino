@@ -1,6 +1,6 @@
 //Setup devduino's as arduino Pro or Pro-mini
 //Always use Serial 115200 (slower causes problems)
-//Select 5V, 16MHz, otherwise timing is incorrect
+//Select Devduino board 1Mhz Atmega 328p 1.8V
 //Select programmer voltage to 3.3V
 //Select progammer USBASP
 
@@ -13,10 +13,12 @@
 
 #include <SPI.h>
 #include <RF24.h>
-#include <SparkFunHTU21D.h>
+#include <SHT2x.h>
+//#include <SparkFunHTU21D.h>
 #include <Wire.h>
-#include <LowPower.h>
+//#include <LowPower.h>
 #include <APDS9930.h>
+#include <Adafruit_SleepyDog.h>
 //#include <EEPROM.h> // EEPROM read/write libary. Simplifies variable types.
 
 typedef struct {
@@ -52,20 +54,25 @@ const uint64_t readingPipe[5] = { 0x3A3A3A3AD2LL, 0x3A3A3A3AC3LL, 0x3A3A3A3AB4LL
  
 ///////
  
-HTU21D devTempHumSens; //set name for onboard sensor
+//HTU21D devTempHumSens; //set name for onboard sensor
 APDS9930 apds = APDS9930(); //set name for APDS9930 sensor on I2C bus
 uint16_t proximity_data = 0;
 uint16_t ch0Light = 0;
 uint16_t ch1Light = 0;
 float luxLight = 0;
+float temp = 0;
+float hum = 0;
  
 void setup() {
-  	Serial.begin(115200); // Serial needs to use 115200. Anything else results in radio failures.
+  	//Serial.begin(115200); // Serial needs to use 115200. Anything else results in radio failures.
   	pinMode(LED, OUTPUT); // Devduino led used to signal state.
     pinMode(BUTTON, INPUT_PULLUP);
 
+    Watchdog.enable(8000); // turn on the watchdog for 8s
+
     digitalWrite(LED, HIGH); // LED on means high power mode
-  	devTempHumSens.begin(); // Start devuino built in Temp and Humidity sensor
+  	//devTempHumSens.begin(); // Start devuino built in Temp and Humidity sensor
+  	Wire.begin();
 
     apds.init();
     //apds.clearProximityInt();
@@ -89,12 +96,15 @@ void setup() {
  
 void loop() {
 
+
+
     
-    if (burst < millis()) goToSleep (1); // sleep for 5 seconds if no command received. Master must still be asleep.
+    if (burst < millis()) goToSleep (1); // sleep for 1 seconds if no command received. Master must still be asleep.
     //check button
-    if (digitalRead(BUTTON) == LOW) startSleep = false;
-    if (startSleep == true) flashNodeId(); // flick the node ID pattern
-    else {
+    //if (digitalRead(BUTTON) == LOW) startSleep = false;
+    //if (startSleep == true) flashNodeId(); // flick the node ID pattern
+    //else {
+    	//flashNodeId();
       //send and receive sequence
       apds.enableProximitySensor(false);
       apds.setProximityGain(0); //set gain to 1x
@@ -106,17 +116,21 @@ void loop() {
       apds.readCh1Light(ch1Light);
       apds.readAmbientLightLux(luxLight);
 
-      if (sendSensorMessage(1, devTempHumSens.readTemperature())) burst = millis()+10000; // transmit data for 10 seconds
+      //temp = devTempHumSens.readTemperature();
+      temp =SHT2x.GetTemperature();
+      hum = SHT2x.GetHumidity();
+
+      if (sendSensorMessage(1, temp)) burst = millis()+10000; // transmit data for 10 seconds
       if (burst>millis()) {
-        sendSensorMessage(2, devTempHumSens.readHumidity());
-        sendSensorMessage(3, int(proximity_data)); // proximity measure
-        sendSensorMessage(4, int(ch0Light)); 
-        sendSensorMessage(5, int(ch1Light)); 
+        sendSensorMessage(2, hum);
+        sendSensorMessage(3, float(proximity_data)); // proximity measure
+        sendSensorMessage(4, float(ch0Light)); 
+        sendSensorMessage(5, float(ch1Light)); 
         sendSensorMessage(6, luxLight);
         sendSensorMessage(7, ((float) readVcc())/1000.0); // battery voltage
       }
-
-    }
+    //}
+    Watchdog.reset();
 }
  
 // send data
@@ -139,9 +153,9 @@ bool sendSensorMessage(byte dID, float V) {
 
   	bool ok = radio.write( &sensor, sizeof(sensor) ); 
 
-    if (ok) Serial.println("ok...");
-    else Serial.println("failed.");
-
+    //if (ok) Serial.println("ok..."); //removal causes routine failure
+    //else Serial.println("failed.");  //removal causes routine to fail.
+    //delay(20);
     // Now, continue listening
     radio.startListening();
 
@@ -149,11 +163,11 @@ bool sendSensorMessage(byte dID, float V) {
     unsigned long started_waiting_at = millis();
     bool timeout = false;
     while ( ! radio.available() && ! timeout ) {
-    	if (millis() - started_waiting_at > 50 ) timeout = true;
+    	if (millis() - started_waiting_at > 500 ) timeout = true; //was 50
     }
 
     // Describe the results
-    if ( timeout ) Serial.println("Failed, response timed out.");
+    if ( timeout ) ;//Serial.println("Failed, response timed out.");
     else {
     	// Grab the response, compare, and send to debugging spew
       	radio.read( &command, sizeof(command) );
@@ -169,14 +183,17 @@ bool sendSensorMessage(byte dID, float V) {
   		//Serial.println(sizeof(sensor));
   		if (command.SID == nodeID) {
     		if (command.dataID == 0) {
-          Serial.print("They got it. Keep reporting.");
+          //Serial.print("They got it. Keep reporting."); //removal causes routine to fail
+          delay(20);
           commandRec = true;
         }
     		if (command.dataID == 1) { // ID =1 signals sleep command
+    			
     			//Serial.print("They got it. Go to sleep and wake up in: ");
+    			delay(20);
     			//Serial.println(command.value);
     			sleepDur = (int)command.value; // seconds to sleep.
-          apds.clearProximityInt(); //reset proximity interrupts because data has been received
+          //apds.clearProximityInt(); //reset proximity interrupts because data has been received
     			goToSleep (sleepDur);
     		}
     	}
@@ -213,18 +230,21 @@ long readVcc() {
 }
 
 void goToSleep (int t) {
+	if (t>3600) t=0; //sleep cannot be larger than 1 hour.
   	digitalWrite(LED, LOW);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
   	radio.powerDown();
     apds.disablePower(); //APDS will only check proximity when awake.
   	int i  = 0;
-    if (t>3600) t=0; //sleep cannot be larger than 1 hour.
   	while (i < t) {
-    	LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+    	//LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+    	Watchdog.sleep(1000);
+    	Watchdog.reset();
     	i++;
   	}
   	radio.powerUp();
     apds.enablePower(); //apds may have powered down due to a prox interupt.
     digitalWrite(LED, HIGH);  
+    
   	return;
 }
 
@@ -257,6 +277,7 @@ int proxIntStatus() {
   return status;
 }
 
+/*
 void flashNodeId() {
   digitalWrite(LED, LOW);
   radio.powerDown();
@@ -269,3 +290,4 @@ void flashNodeId() {
     if (digitalRead(BUTTON) == LOW) startSleep = false;
   }
 }
+*/

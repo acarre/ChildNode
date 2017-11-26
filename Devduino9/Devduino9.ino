@@ -1,6 +1,6 @@
 //Setup devduino's as arduino Pro or Pro-mini
 //Always use Serial 115200 (slower causes problems)
-//Select Devduino board 1Mhz Atmega 328p 1.8V
+//Select custom board Sensor328p 1Mhz Atmega 328p 1.8V
 //Select programmer voltage to 3.3V
 //Select progammer USBASP
 

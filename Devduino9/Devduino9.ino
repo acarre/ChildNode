@@ -121,6 +121,17 @@ void loop() {
       hum = SHT2x.GetHumidity();
 
       if (sendSensorMessage(1, temp)) burst = millis()+10000; // transmit data for 10 seconds
+      
+      //Node data
+      /*
+      0 Humidity (%RH)
+      1 Proximity
+      3 Ch0 light
+      4 Ch1 light
+      5 Lux light
+      6 Battery volt
+      */
+
       if (burst>millis()) {
         sendSensorMessage(2, hum);
         sendSensorMessage(3, float(proximity_data)); // proximity measure

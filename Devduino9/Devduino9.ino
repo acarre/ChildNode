@@ -18,6 +18,7 @@
 #include <Wire.h>
 #include <LowPower.h>
 #include <APDS9930.h>
+#include <avr/wdt.h> //watchdog
 //#include <Adafruit_SleepyDog.h>
 //#include <EEPROM.h> // EEPROM read/write libary. Simplifies variable types.
 
@@ -93,6 +94,7 @@ void setup() {
     radio.openWritingPipe(writingPipe[nodeID-1]);
     radio.openReadingPipe(1,readingPipe[nodeID-1]);
     radio.stopListening();
+    watchdogSetup(); //watchdog
 }
  
 void loop() {
@@ -140,6 +142,7 @@ void loop() {
       }
     //}
     //Watchdog.reset();
+    wdt_reset();
 }
  
 // send data
@@ -248,6 +251,7 @@ void goToSleep (int t) {
       LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
       //Watchdog.sleep(1000);
       //Watchdog.reset();
+      wdt_reset();
       i++;
     }
     radio.powerUp();
@@ -300,3 +304,26 @@ void flashNodeId() {
   }
 }
 */
+
+void watchdogSetup(void)
+{
+cli();
+wdt_reset();
+/*
+WDTCSR configuration:
+WDIE = 0: Interrupt disable
+WDE = 1 :Reset Enable
+See table for time-out variations:
+WDP3 = 1 :For 8000ms Time-out
+WDP2 = 0 :
+WDP1 = 0 :
+WDP0 = 0 :
+*/
+// Enter Watchdog Configuration mode:
+WDTCSR |= (1<<WDCE) | (1<<WDE);
+// Set Watchdog settings:
+WDTCSR = (0<<WDIE) | (1<<WDE) |
+(1<<WDP3) | (0<<WDP2) | (0<<WDP1) |
+(1<<WDP0);
+sei();
+}
